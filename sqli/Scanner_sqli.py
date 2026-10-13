@@ -60,12 +60,29 @@ def Python(arquivo):
 	parser=Parser(linguagem)
 	tree=parser.parse(arquivo_b)
 	query_ler="""
-		(
-		 [
-		  (binary_operator) 
-		  (string (interpolation))
-		 ]@str
-		 (#match? @str "(?i)\\\\b(select|update|insert)\\\\b")
+		(module
+		 (expression_statement
+		  (assignment
+		   left: (identifier) @esq
+		   right: (binary_operator 
+		   left: (string) @str
+		   )
+		   )
+		   )
+		  
+		 (expression_statement
+		  (call
+		   function: (attribute
+		    attribute: (identifier) @func
+		    )
+		    arguments: (argument_list
+		     (identifier) @arg
+		     )
+		     )
+		     )
+		  (#match? @str "(?i)(select|update|insert)")
+		  (#eq? @func "execute")
+		 (#eq? @esq @arg)
 		)
 	"""
 	query=Query(linguagem,query_ler)
