@@ -54,7 +54,7 @@ def Salvar_db(nome: str,tipo: str,origem: str,codigo: str,linha: int):
 	db.commit()
 	db.close()
 
-def Python_binaryM(arquivo):
+def Python_Module(arquivo):
 	arquivo_b=arquivo.read_bytes()
 	linguagem=Language(py.language())
 	parser=Parser(linguagem)
@@ -64,7 +64,7 @@ def Python_binaryM(arquivo):
 	        (expression_statement
 	         (assignment
 	          left: (identifier) @esq
-	          right: (binary_operator) @str))
+	          right: [(binary_operator) @str (string (interpolation)) @str]))
 	    
 	   (expression_statement
 	    (call
@@ -98,7 +98,7 @@ def Python_binaryM(arquivo):
 			table1.add_row(arquivo.stem,arquivo.suffix,str(arquivo),codigo,str(row),style="yellow")
 			Salvar_db(arquivo.stem,arquivo.suffix,str(arquivo),codigo,row)
 
-def Python_binaryB(arquivo):
+def Python_Block(arquivo):
 	arquivo_b=arquivo.read_bytes()
 	linguagem=Language(py.language())
 	parser=Parser(linguagem)
@@ -108,7 +108,7 @@ def Python_binaryB(arquivo):
 	        (expression_statement
 	         (assignment
 	          left: (identifier) @esq
-	          right: (binary_operator) @str))
+	          right: [(binary_operator) @str (string (interpolation)) @str]))
 	    
 	   (expression_statement
 	    (call
@@ -143,97 +143,6 @@ def Python_binaryB(arquivo):
 			table1.add_row(arquivo.stem,arquivo.suffix,str(arquivo),codigo,str(row),style="yellow")
 			Salvar_db(arquivo.stem,arquivo.suffix,str(arquivo),codigo,row)
 
-def Python_interpolationM(arquivo):
-	arquivo_b=arquivo.read_bytes()
-	linguagem=Language(py.language())
-	parser=Parser(linguagem)
-	tree=parser.parse(arquivo_b)
-	query_ler="""
-	   (module
-	         (expression_statement
-	          (assignment
-	           left: (identifier) @esq
-	           right: (string
-	            (interpolation)) @str))
-	     
-	    (expression_statement
-	     (call
-	      function: (attribute
-	       attribute: (identifier) @func)
-	       arguments: (argument_list
-	        (identifier) @arg)))
-
-	     (#match? @str "(?i)\\\\b(select|update|insert)\\\\b")
-	     (#eq? @func "execute")     
-	    (#eq? @esq @arg)
-	   )
-	  """
-	 
-	query=Query(linguagem,query_ler)
-	cursor=QueryCursor(query)
-	matches=cursor.matches(tree.root_node)
-
-	vistos={}
-
-	if matches is not None:
-		for _,match in matches: 
-			str_node=match["str"][0]
-			linha=str_node.start_point.row
-			trecho=arquivo_b.split(b'\n')[str_node.start_point.row].decode() 
-	   
-			if trecho in vistos:
-				continue
-			vistos[trecho]=linha
-	   
-		for codigo,row in vistos.items():
-			table1.add_row(arquivo.stem,arquivo.suffix,str(arquivo),codigo,str(row),style="yellow")
-			Salvar_db(arquivo.stem,arquivo.suffix,str(arquivo),codigo,row)
-
-def Python_interpolationB(arquivo):
-	arquivo_b=arquivo.read_bytes()
-	linguagem=Language(py.language())
-	parser=Parser(linguagem)
-	tree=parser.parse(arquivo_b)
-	query_ler="""
-	   (block
-	         (expression_statement
-	          (assignment
-	           left: (identifier) @esq
-	           right: (string
-	            (interpolation)) @str))
-	     
-	    (expression_statement
-	     (call
-	      function: (attribute
-	       attribute: (identifier) @func)
-	       arguments: (argument_list
-	        (identifier) @arg)))
-
-	     (#match? @str "(?i)\\\\b(select|update|insert)\\\\b")
-	     (#eq? @func "execute")     
-	    (#eq? @esq @arg)
-	   )
-	  """
-
-	query=Query(linguagem,query_ler)
-	cursor=QueryCursor(query)
-	matches=cursor.matches(tree.root_node)
-
-	vistos={}
-
-	if matches is not None:
-		for _,match in matches: 
-			str_node=match["str"][0]
-			linha=str_node.start_point.row
-			trecho=arquivo_b.split(b'\n')[str_node.start_point.row].decode() 
-	   
-			if trecho in vistos:
-				continue
-			vistos[trecho]=linha
-	   
-		for codigo,row in vistos.items():
-			table1.add_row(arquivo.stem,arquivo.suffix,str(arquivo),codigo,str(row),style="yellow")
-			Salvar_db(arquivo.stem,arquivo.suffix,str(arquivo),codigo,row)
 
 def Java(arquivo):
 	arquivo_b=arquivo.read_bytes()
@@ -266,15 +175,70 @@ def Java(arquivo):
 			table1.add_row(arquivo.stem,arquivo.suffix,str(arquivo),codigo,str(row),style="cyan")
 			Salvar_db(arquivo.stem,arquivo.suffix,str(arquivo),codigo,row)
 
-def Php(arquivo):
+def Php_simples(arquivo):
 	arquivo_b=arquivo.read_bytes()
 	linguagem=Language(php.language_php())
 	parser=Parser(linguagem)
 	tree=parser.parse(arquivo_b)
 	query_ler="""
-		(
-		  (encapsed_string) @str
+		(program
+		 (expression_statement 
+		  (assignment_expression
+		   left: (variable_name) @var
+		   right: [(encapsed_string) @str (binary_expression) @str]))
+		 
+		 (expression_statement
+		  (function_call_expression
+		  function: (name) @func
+		  arguments: (arguments
+		   (argument
+		   (variable_name) @arg))))
 		 (#match? @str "(?i)\\\\b(select|update|insert)\\\\b")
+		 (#eq? @func "mysqli_query")
+		 (#eq? @var @arg)
+		)
+	"""
+	query=Query(linguagem,query_ler)
+	cursor=QueryCursor(query)
+	matches=cursor.matches(tree.root_node)
+
+	vistos={}
+
+	if matches is not None:
+		for _,match in matches:	
+			str_node=match["str"][0]
+			linha=str_node.start_point.row
+			trecho=arquivo_b.split(b'\n')[str_node.start_point.row].decode()	
+			
+			if trecho in vistos:
+				continue
+			vistos[trecho]=linha
+			
+		for codigo,row in vistos.items():
+			table1.add_row(arquivo.stem,arquivo.suffix,str(arquivo),codigo,str(row),style="green")
+			Salvar_db(arquivo.stem,arquivo.suffix,str(arquivo),codigo,row)
+
+def Php_attr(arquivo):
+	arquivo_b=arquivo.read_bytes()
+	linguagem=Language(php.language_php())
+	parser=Parser(linguagem)
+	tree=parser.parse(arquivo_b)
+	query_ler="""
+		(program
+		 (expression_statement 
+		  (assignment_expression
+		   left: (variable_name) @var
+		   right: [(encapsed_string) @str (binary_expression) @str]))
+		 
+		 (expression_statement
+		  (member_call_expression
+		  name: (name) @func
+		  arguments: (arguments
+		   (argument
+		   (variable_name) @arg))))
+		 (#match? @str "(?i)\\\\b(select|update|insert)\\\\b")
+	 	 (#match? @func "^(exec|prepare|query)$")
+		 (#eq? @var @arg)
 		)
 	"""
 	query=Query(linguagem,query_ler)
@@ -338,14 +302,15 @@ def main():
 	arquivos=list(pasta.rglob("*.py"))+list(pasta.rglob("*.js"))+list(pasta.rglob("*.java"))+list(pasta.rglob("*.php"))
 	for arquivo in arquivos:
 		if arquivo.suffix==".py":
-			Python_binaryM(arquivo)
-			Python_binaryB(arquivo)
-			Python_interpolationM(arquivo)
-			Python_interpolationB(arquivo)
+			Python_Module(arquivo)
+			Python_Block(arquivo)
+#			Python_interpolationM(arquivo)
+#			Python_interpolationB(arquivo)
 		elif arquivo.suffix==".java":
 			Java(arquivo)
 		elif arquivo.suffix==".php":
-			Php(arquivo)
+			Php_attr(arquivo)
+			Php_simples(arquivo)
 		elif arquivo.suffix==".js":
 			Javascript(arquivo)
 	console.print(table1)
