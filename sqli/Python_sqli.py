@@ -8,3 +8,8 @@ cursor.execute(query2)
 cursor.executemany(="insert into users values ("+vals+")")
 
 cursor.executescript("drop table "+table)
+
+User.objects.raw("select * from users where id = "+user_id) 
+
+
+User.objects.extra(where=["id = "+user_id])
