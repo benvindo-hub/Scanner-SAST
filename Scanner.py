@@ -67,27 +67,35 @@ def Salvar_db(nome: str,caminho: str,linguagem: str,codigo: str,linha: int,tipo:
 	db.commit()
 	db.close()
 
-def Python_Module(arquivo):
+def Python1(arquivo):
 	arquivo_b=arquivo.read_bytes()
 	linguagem=Language(py.language())
 	parser=Parser(linguagem)
 	tree=parser.parse(arquivo_b)
 	query_ler="""
 	  (module
-	        (expression_statement
-	         (assignment
-	          left: (identifier) @esq
-	          right: [(binary_operator) @str (string (interpolation)) @str]))
-	    
-	   (expression_statement
-	    (call
-	     function: (attribute
-	      attribute: (identifier) @func)
-	      arguments: (argument_list
-	       (identifier) @arg)))
-	    (#match? @str "(?i)\\\\b(select|update|insert)\\\\b")
-	    (#eq? @func "execute")
-	    
+
+	    (expression_statement
+	      (assignment
+	        left: (identifier) @esq
+	        right: [(binary_operator r) @str (string (interpolation)) @str]))
+
+	    (fuction_definition
+	      body:
+	        (block 
+	          (assignment
+	            left: (identifier) @esq
+	            right: [(binary_operator (identifier) @origem) @str (string (interpolation (identifier) @origem) @str]))
+
+	    (expression_statement
+	      (call
+	        function: (attribute
+	          attribute: (identifier) @func)
+	        arguments: (argument_list
+	          (identifier) @arg)))
+
+	    (#match? @str "(?i)\\\\b(select|update|insert|delete)\\\\b")
+	    (#match? @func "execute|executemany|read_sql") 
 	   (#eq? @esq @arg)
 	  )
 	 """
@@ -95,21 +103,84 @@ def Python_Module(arquivo):
 	cursor=QueryCursor(query)
 	matches=cursor.matches(tree.root_node)
 
-	vistos={}
+	vistos=set()
 
 	if matches is not None:
 		for _,match in matches: 
 			str_node=match["str"][0]
-			linha=str_node.start_point.row
+			origem=match["origem"][0]
+
+			var=arquivo_b[origem.start_byte:origem.end_byte].decode()
+			linha=str_node.start_point.row+1
 			trecho=arquivo_b.split(b'\n')[str_node.start_point.row].decode() 
-	   
-			if trecho in vistos:
+	   		
+			chave=(trecho,linha)
+			if chave in vistos:
 				continue
-			vistos[trecho]=linha
+			vistos.add(chave)
 	   
-		for codigo,row in vistos.items():
-			table1.add_row(arquivo.stem,arquivo.suffix,str(arquivo),codigo,str(row),style="yellow")
-			Salvar_db(arquivo.stem,arquivo.suffix,str(arquivo),codigo,row)
+		for codigo,row in vistos:
+			if type(var)=="str":
+				cor="bold orange3"
+				severity="HIGH"
+			elif type(var)=="int" or type(var)=="float":
+				cor="bold green"
+				severity="LOW"
+			table1.add_row(arquivo.stem,str(arquivo),"Python",str(row),"SQL INJECTION",severity,style="yellow")
+			Salvar_db(arquivo.stem,,str(arquivo),"Python",str(row),"SQL INJECTION",severity)
+
+def Python2(arquivo):
+	arquivo_b=arquivo.read_bytes()
+	linguagem=Language(py.language())
+	parser=Parser(linguagem)
+	tree=parser.parse(arquivo_b)
+	query_ler="""
+	  (module
+
+	    (fuction_definition
+	      parameters: (identifier) @var1
+
+	    (expression_statement
+	      (call
+	        function: (attribute
+	          attribute: (identifier) @func)
+	        arguments: (argument_list
+	           [(binary_operator (identifier) @var2) @str (string (interpolation (identifier) @var2) @str])
+
+	    (#match? @str "(?i)\\\\b(select|update|insert|delete)\\\\b")
+	    (#match? @func "execute|executemany|read_sql") 
+	   (#eq? @var1 @var2)
+	  )
+	 """
+	query=Query(linguagem,query_ler)
+	cursor=QueryCursor(query)
+	matches=cursor.matches(tree.root_node)
+
+	vistos=set()
+
+	if matches is not None:
+		for _,match in matches: 
+			str_node=match["str"][0]
+			origem=match["var1"][0]
+
+			var=arquivo_b[origem.start_byte:origem.end_byte].decode()
+			linha=str_node.start_point.row+1
+			trecho=arquivo_b.split(b'\n')[str_node.start_point.row].decode() 
+	   		
+			chave=(trecho,linha)
+			if chave in vistos:
+				continue
+			vistos.add(chave)
+	   
+		for codigo,row in vistos:
+			if type(var)=="str":
+				cor="bold yellow"
+				severity="MEDIUM"
+			elif type(var)=="int" or type(var)=="float":
+				cor="bold green"
+				severity="LOW"
+			table1.add_row(arquivo.stem,str(arquivo),"Python",str(row),"SQL INJECTION",severity,style="yellow")
+			Salvar_db(arquivo.stem,,str(arquivo),"Python",str(row),"SQL INJECTION",severity)
 
 def Python_Block(arquivo):
 	arquivo_b=arquivo.read_bytes()
@@ -156,6 +227,13 @@ def Python_Block(arquivo):
 			table1.add_row(arquivo.stem,arquivo.suffix,str(arquivo),codigo,str(row),style="yellow")
 			Salvar_db(arquivo.stem,arquivo.suffix,str(arquivo),codigo,row)
 
+
+def Python(arquivo):
+	
+	Python_Module(arquivo)
+	Python_Block(arquivo)
+#	Python_interpolationM(arquivo)
+#	Python_interpolationB(arquivo)
 
 def Java(arquivo):
 	arquivo_b=arquivo.read_bytes()
@@ -306,14 +384,9 @@ def Javascript(arquivo):
 			vistos.add(chave)
 			
 		for codigo,row in vistos:
-			if arquivo.suffix==".py":
-				linguagem="Python"
-			if arquivo.suffix==".java":
-				linguagem="Java"
-			if arquivo.suffix==".js":
-				linguagem="Javascript"
-			table1.add_row(arquivo.stem,str(arquivo),"Javascript",codigo,str(row),"","",style="red")
-			Salvar_db(arquivo.stem,arquivo.suffixstr(arquivo),codigo,row)
+			
+			table1.add_row(arquivo.stem,str(arquivo),"Javascript",codigo,str(row),"SQL INJECTION","CRITICAL",style="red")
+			Salvar_db(arquivo.stem,str(arquivo),"Javascript",codigo,row,"SQL INJECTION",)
 
 @app.command()
 def scan(path: str = "."):
@@ -321,10 +394,7 @@ def scan(path: str = "."):
 	arquivos=list(pasta.rglob("*.py"))+list(pasta.rglob("*.js"))+list(pasta.rglob("*.java"))+list(pasta.rglob("*.php"))
 	for arquivo in arquivos:
 		if arquivo.suffix==".py":
-			Python_Module(arquivo)
-			Python_Block(arquivo)
-#			Python_interpolationM(arquivo)
-#			Python_interpolationB(arquivo)
+			Python(arquivo)
 		elif arquivo.suffix==".java":
 			Java(arquivo)
 		elif arquivo.suffix==".php":
@@ -336,7 +406,7 @@ def scan(path: str = "."):
 
 
 @app.command()
-def relatorio_cmd(quantidade: int= tp.Option(None,"-q","-d","--quantidade")):
+def report_cmd(quantidade: int= tp.Option(None,"-q","-d","--quantidade")):
 	db=sqlite3.connect(db_name)
 	
 	if quantidade is None:
@@ -344,6 +414,59 @@ def relatorio_cmd(quantidade: int= tp.Option(None,"-q","-d","--quantidade")):
 		dados=db.execute(sql).fetchall()
 	else:
 		sql="select * from vulnerabilidades limit ?"
+		dados=db.execute(sql,(quantidade,)).fetchall()
+
+	for d in dados:
+		if d[7]=="CRITICAL":
+			cor="bold red"
+		elif d[7]=="HIGH":
+			cor="bold orange3"
+		elif d[7]=="MEDIUM":
+			cor="bold yellow"
+		elif d[7]=="LOW":
+			cor="bold green"
+		table2.add_row(str(d[1],d[2],d[3],d[4],str(d[5]),d[6],d[7],d[8],style=cor)
+	console.print(table2)
+
+
+@app.command()
+def report_pdf(quantidade: int= tp.Option(None,"-q","-d","--quantidade")):
+	db=sqlite3.connect(db_name)
+	
+	if quantidade is None:
+		sql="select * from capturas"
+		dados=db.execute(sql).fetchall()
+	else:
+		sql="select * from capturas limit ?"
+		dados=db.execute(sql,(quantidade,)).fetchall()
+
+	if dados is None:
+		raise tp.BadParameter("O banco de dados esta vazio")
+
+	pdf=FPDF()
+	pdf.add_page()
+	for d in dados:
+		if d[7]=="CRITICAL":
+			cor="bold red"
+		if d[7]=="HIGH":
+			cor="bold orange3"
+		if d[7]=="MEDIUM":
+			cor="bold yellow"
+		if d[7]=="LOW":
+			cor="bold green"
+		table2.add_row(str(d[1],d[2],d[3],d[4],str(d[5]),d[6],d[7],d[8],style=cor)
+	console.print(table2)
+
+
+"""@app.command()
+def report_json(quantidade: int= tp.Option(None,"-q","-d","--quantidade")):
+	db=sqlite3.connect(db_name)
+	
+	if quantidade is None:
+		sql="select * from capturas"
+		dados=db.execute(sql).fetchall()
+	else:
+		sql="select * from capturas limit ?"
 		dados=db.execute(sql,(quantidade,)).fetchall()
 
 	for d in dados:
@@ -357,6 +480,6 @@ def relatorio_cmd(quantidade: int= tp.Option(None,"-q","-d","--quantidade")):
 			cor="bold green"
 		table2.add_row(str(d[1],d[2],d[3],d[4],str(d[5]),d[6],d[7],d[8],style=cor)
 	console.print(table2)
-
+"""
 if __name__=="__main__":
 	app()
