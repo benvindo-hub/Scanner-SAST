@@ -73,12 +73,24 @@ def Python1(arquivo):
 	parser=Parser(linguagem)
 	tree=parser.parse(arquivo_b)
 	query_ler="""
-	  (module
+	 (module
+	    (expression_statement
+	      (assignment
+	        left: (identifier) @var
+	        right: (_) @tipo ))
 
 	    (expression_statement 
 	      (assignment
 	        left: (identifier) @esq
-	        right: [(binary_operator (identifier [(string) (integer) (float)] @tipo) @origem) @str (string (interpolation (identifier  [(string) (int) (float)] @tipo) @origem)) @str]
+	        right: 
+	          [
+		   (binary_operator (binary_operator (identifier) @var1)) @str 
+	 	  (string 
+		    (interpolation 
+		      (identifier) @var1
+	            )
+	          ) @str
+		]
 	      )
 	    )
 
@@ -95,7 +107,7 @@ def Python1(arquivo):
 
 	    (#match? @str "(?i)\\\\b(select|update|insert|delete)\\\\b")
 	    (#match? @func "execute|executemany|read_sql") 
-	   (#eq? @esq @arg)
+	    (#eq? @esq @arg)
 	  )
 
 	  (module
@@ -103,10 +115,16 @@ def Python1(arquivo):
 	    (function_definition
 	      body:
 	        (block
+
+		  (expression_statement
+	            (assignment
+	              left: (identifier) @var
+	              right: (_) @tipo ))
+
 	          (expression_statement 
 	            (assignment
 	              left: (identifier) @esq
-	              right: [(binary_operator (identifier) @origem) @str (string (interpolation (identifier) @origem)) @str]
+	              right: [(binary_operator (identifier) @var1) @str (string (interpolation (identifier) @var1)) @str]
 	            )
 	          )
 
@@ -125,7 +143,8 @@ def Python1(arquivo):
 
 	    (#match? @str "(?i)\\\\b(select|update|insert|delete)\\\\b")
 	    (#match? @func "execute|executemany|read_sql") 
-	   (#eq? @esq @arg)
+	    (#eq? @esq @arg)
+	    (#eq? @var @var1)
 	  )
 	 """
 	query=Query(linguagem,query_ler)
@@ -137,9 +156,10 @@ def Python1(arquivo):
 	if matches is not None:
 		for _,match in matches: 
 			str_node=match["str"][0]
-			origem=match["origem"][0]
+#			var=match["var"][0]
 			tipo=match["tipo"][0]
-			var=arquivo_b[origem.start_byte:origem.end_byte].decode()
+#			tipo_codigo=arquivo_b[var.start_byte:var.end_byte].decode()
+			tipo_codigo=arquivo_b[tipo.start_byte:tipo.end_byte].decode()
 			linha=str_node.start_point.row+1
 			trecho=arquivo_b.split(b'\n')[str_node.start_point.row].decode() 
 	   		
@@ -149,16 +169,16 @@ def Python1(arquivo):
 			vistos.add(chave)
 	   
 		for codigo,row in vistos:
-			if tipo=="str":
+			if tipo.type=="string":
 				cor="bold orange3"
 				severity="HIGH"
-			elif tipo=="int" or type(var)=="float":
+			elif tipo.type=="integer" or tipo.type=="float":
 				cor="bold green"
 				severity="LOW"
 			else:
 				cor="bold green"
 				severity="LOW"
-			table.add_row(arquivo.stem,str(arquivo),"Python",codigo,str(row),"SQL INJECTION",severity,datetime.now().strftime("%H:%M:%S %d-%m-%Y"),style=cor)
+			table.add_row(arquivo.stem,str(arquivo),"Python",codigo,str(row),"SQL INJECTION",str(tipo.type),datetime.now().strftime("%H:%M:%S %d-%m-%Y"),style=cor)
 			Salvar_db(arquivo.stem,str(arquivo),"Python",codigo,str(row),"SQL INJECTION",severity)
 #
 #def Python2(arquivo):
