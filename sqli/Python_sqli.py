@@ -1,4 +1,4 @@
-id="djfjfg"
+id=len()
 query="select * from users where id='"+id+"'"
 cursor.execute(query)
 

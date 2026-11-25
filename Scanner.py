@@ -1,3 +1,4 @@
+# LIB IMPORT
 from rich.console import Console
 from rich.table import Table
 from tree_sitter import Language,Parser,QueryCursor,Query
@@ -12,6 +13,7 @@ import typer as tp
 import sqlite3
 import json
 
+
 app=tp.Typer()
 
 console=Console()
@@ -25,6 +27,7 @@ table.add_column("[white]vulnerability_type[/white]")
 table.add_column("[white]severity[/white]")
 table.add_column("[white]created_at[/white]")
 
+vulnerability_type":["SQL INJECTION","XSS"],"severity":
 db_name="vulnerabilidades.db"
 json_name="relatorio.json"
 
@@ -67,7 +70,7 @@ def Salvar_db(nome: str,caminho: str,linguagem: str,codigo: str,linha: int,tipo:
 	db.commit()
 	db.close()
 
-def Python1(arquivo):
+def PythonSQL(arquivo):
 	arquivo_b=arquivo.read_bytes()
 	linguagem=Language(py.language())
 	parser=Parser(linguagem)
@@ -84,12 +87,31 @@ def Python1(arquivo):
 	        left: (identifier) @esq
 	        right: 
 	          [
-		   (binary_operator (binary_operator (identifier) @var1)) @str 
-	 	  (string 
-		    (interpolation 
-		      (identifier) @var1
-	            )
-	          ) @str
+		   (binary_operator (identifier) @var1
+		   ) @str
+		   (binary_operator 
+		     (binary_operator (identifier) @var1
+		     )
+		   ) @str
+		   (binary_operator 
+		     (binary_operator 
+		       (binary_operator (identifier) @var1
+		       )
+		     )
+		   ) @str
+		   (binary_operator 
+		     (binary_operator 
+		       (binary_operator 
+			 (binary_operator (identifier) @var1
+			 )
+		       )
+		     )
+		   ) @str 
+	 	   (string 
+		     (interpolation 
+		       (identifier) @var1
+	             )
+	           ) @str
 		]
 	      )
 	    )
@@ -108,37 +130,180 @@ def Python1(arquivo):
 	    (#match? @str "(?i)\\\\b(select|update|insert|delete)\\\\b")
 	    (#match? @func "execute|executemany|read_sql") 
 	    (#eq? @esq @arg)
+	    (#eq? @var @var1)
 	  )
 
-	  (module
+	 (module
+	   
+	   (function_definition
+	     body: 
+	       (block
 
-	    (function_definition
-	      body:
+	         (expression_statement
+	           (assignment
+	             left: (identifier) @var
+	             right: (_) @tipo ))
+
+	         (expression_statement 
+	           (assignment
+	             left: (identifier) @esq
+	             right: 
+	               [
+		         (binary_operator (identifier) @var1
+		         ) @str
+		         (binary_operator 
+		           (binary_operator (identifier) @var1
+		           )
+		         ) @str
+		         (binary_operator 
+		           (binary_operator 
+		             (binary_operator (identifier) @var1
+		             )
+		           )
+		         ) @str
+		         (binary_operator 
+		           (binary_operator 
+		             (binary_operator 
+			       (binary_operator (identifier) @var1
+			       )
+		             )
+		           )
+		         ) @str 
+	 	         (string 
+		           (interpolation 
+		             (identifier) @var1
+	                   )
+	                 ) @str
+		       ]
+	           )
+	         )
+
+	         (expression_statement
+	           (call
+	             function: 
+		       (attribute
+	                 attribute: 
+		           (identifier) @func
+		       )
+	             arguments: 
+	               (argument_list
+	                 (identifier) @arg
+	               )
+	           )
+	         )
+	       )
+	   )
+	         (#match? @str "(?i)\\\\b(select|update|insert|delete)\\\\b")
+	         (#match? @func "execute|executemany|read_sql") 
+	         (#eq? @esq @arg)
+		 (#eq? @var @var1)
+	 )
+
+	 (module
+	    (expression_statement
+	      (assignment
+	        left: (identifier) @var
+	        right: (_) @tipo ))
+
+	    (expression_statement 
+	      (call
+	        function: (attribute
+	          attribute: (identifier) @func)
+	        arguments: 
+	          (argument_list 
+	            [
+		      (binary_operator (identifier) @var1
+		      ) @str
+		      (binary_operator 
+		        (binary_operator (identifier) @var1
+		        )
+		      ) @str
+		      (binary_operator 
+		        (binary_operator 
+		          (binary_operator (identifier) @var1
+		          )
+		        )
+		      ) @str
+		      (binary_operator 
+		        (binary_operator 
+		          (binary_operator 
+			    (binary_operator (identifier) @var1
+			    )
+		          )
+		        )
+		      ) @str 
+	 	      (string 
+		        (interpolation 
+		          (identifier) @var1
+	                )
+	              ) @str
+		    ]
+	          )
+	      )
+	    )
+	  
+	    (#match? @str "(?i)\\\\b(select|update|insert|delete)\\\\b")
+	    (#match? @func "execute|executemany|read_sql") 
+	    (#eq? @esq @arg)
+	    (#eq? @var @var1)
+	  )
+
+
+	  (module
+	    (function
+	      body: 
 	        (block
 
 		  (expression_statement
 	            (assignment
 	              left: (identifier) @var
-	              right: (_) @tipo ))
+	              right: (_) @tipo 
+		    )
+		  )
 
 	          (expression_statement 
-	            (assignment
-	              left: (identifier) @esq
-	              right: [(binary_operator (identifier) @var1) @str (string (interpolation (identifier) @var1)) @str]
-	            )
-	          )
-
-	          (expression_statement
 	            (call
-	              function: (attribute
-	                attribute: (identifier) @func)
-	              arguments: 
-	                (argument_list
-	                  (identifier) @arg
-	                )
+	              function: 
+		        (attribute
+	                  attribute: (identifier) @func
+			)
+	                arguments: 
+	                  (argument_list 
+	                    [
+		              (binary_operator 
+				(identifier) @var1
+		              ) @str
+		              (binary_operator 
+		                (binary_operator 
+				  (identifier) @var1
+		                )
+		              ) @str
+		              (binary_operator 
+		                (binary_operator 
+		                  (binary_operator 
+				    (identifier) @var1
+		                  )
+		                )
+		              ) @str
+		              (binary_operator 
+		                (binary_operator 
+		                  (binary_operator 
+			            (binary_operator 
+				      (identifier) @var1
+			            )
+		                  )
+		                )
+		              ) @str 
+	 	              (string 
+		                (interpolation 
+		                  (identifier) @var1
+	                        )
+	                      ) @str
+		            ]
+	                  )
 	            )
 	          )
-		)
+	        )
 	    )
 
 	    (#match? @str "(?i)\\\\b(select|update|insert|delete)\\\\b")
@@ -282,7 +447,7 @@ def Python1(arquivo):
 #
 def Python(arquivo):
 	
-	Python1(arquivo)
+	PythonSQL(arquivo)
 #	Python2(arquivo)
 #	Python_interpolationM(arquivo)
 #	Python_interpolationB(arquivo)
@@ -318,49 +483,49 @@ def Python(arquivo):
 #			table1.add_row(arquivo.stem,arquivo.suffix,str(arquivo),codigo,str(row),style="cyan")
 #			Salvar_db(arquivo.stem,arquivo.suffix,str(arquivo),codigo,row)
 #
-#def Php_simples(arquivo):
-#	arquivo_b=arquivo.read_bytes()
-#	linguagem=Language(php.language_php())
-#	parser=Parser(linguagem)
-#	tree=parser.parse(arquivo_b)
-#	query_ler=""
-#		(program
-#		 (expression_statement 
-#		  (assignment_expression
-#		   left: (variable_name) @var
-#		   right: [(encapsed_string) @str (binary_expression) @str]))
-#		 
-#		 (expression_statement
-#		  (function_call_expression
-#		  function: (name) @func
-#		  arguments: (arguments
-#		   (argument
-#		   (variable_name) @arg))))
-#		 (#match? @str "(?i)\\\\b(select|update|insert)\\\\b")
-#		 (#eq? @func "mysqli_query")
-#		 (#eq? @var @arg)
-#		)
-#	""
-#	query=Query(linguagem,query_ler)
-#	cursor=QueryCursor(query)
-#	matches=cursor.matches(tree.root_node)
-#
-#	vistos={}
-#
-#	if matches is not None:
-#		for _,match in matches:	
-#			str_node=match["str"][0]
-#			linha=str_node.start_point.row
-#			trecho=arquivo_b.split(b'\n')[str_node.start_point.row].decode()	
-#			
-#			if trecho in vistos:
-#				continue
-#			vistos[trecho]=linha
-#			
-#		for codigo,row in vistos.items():
-#			table1.add_row(arquivo.stem,arquivo.suffix,str(arquivo),codigo,str(row),style="green")
-#			Salvar_db(arquivo.stem,arquivo.suffix,str(arquivo),codigo,row)
-#
+def Php_simples(arquivo):
+	arquivo_b=arquivo.read_bytes()
+	linguagem=Language(php.language_php())
+	parser=Parser(linguagem)
+	tree=parser.parse(arquivo_b)
+	query_ler=""
+		(program
+		 (expression_statement 
+		  (assignment_expression
+		   left: (variable_name) @var
+		   right: [(encapsed_string) @str (binary_expression) @str]))
+		 
+		 (expression_statement
+		  (function_call_expression
+		  function: (name) @func
+		  arguments: (arguments
+		   (argument
+		   (variable_name) @arg))))
+		 (#match? @str "(?i)\\\\b(select|update|insert)\\\\b")
+		 (#eq? @func "mysqli_query")
+		 (#eq? @var @arg)
+		)
+	""
+	query=Query(linguagem,query_ler)
+	cursor=QueryCursor(query)
+	matches=cursor.matches(tree.root_node)
+
+	vistos={}
+
+	if matches is not None:
+		for _,match in matches:	
+			str_node=match["str"][0]
+			linha=str_node.start_point.row
+			trecho=arquivo_b.split(b'\n')[str_node.start_point.row].decode()	
+			
+			if trecho in vistos:
+				continue
+			vistos[trecho]=linha
+			
+		for codigo,row in vistos.items():
+			table1.add_row(arquivo.stem,arquivo.suffix,str(arquivo),codigo,str(row),style="green")
+			Salvar_db(arquivo.stem,arquivo.suffix,str(arquivo),codigo,row)
+
 #def Php_attr(arquivo):
 #	arquivo_b=arquivo.read_bytes()
 #	linguagem=Language(php.language_php())
